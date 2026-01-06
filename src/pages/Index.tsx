@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,8 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import PizzaConstructor from '@/components/PizzaConstructor';
+import AdminPanel from '@/components/AdminPanel';
+import OrderTracking from '@/components/OrderTracking';
 
 type MenuItem = {
   id: number;
@@ -42,10 +49,26 @@ type Promocode = {
   description: string;
 };
 
+type Ingredient = {
+  id: number;
+  name: string;
+  price: number;
+  category: 'base' | 'sauce' | 'cheese' | 'meat' | 'veggies';
+};
+
+type CustomPizza = {
+  size: string;
+  ingredients: Ingredient[];
+};
+
 const Index = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState('home');
   const [showCheckout, setShowCheckout] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
+  const [courierPosition, setCourierPosition] = useState({ lat: 55.7558, lng: 37.6173 });
   const [orders, setOrders] = useState<Order[]>([
     {
       id: 1,
@@ -60,16 +83,23 @@ const Index = () => {
     },
     {
       id: 2,
-      date: '2026-01-04',
+      date: '2026-01-06',
       items: [
         { id: 2, name: 'Пепперони', description: 'Томатный соус, моцарелла, пепперони', price: 750, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza' as const, quantity: 2, selectedSize: '30см' }
       ],
       total: 1500,
-      status: 'delivered',
-      address: 'ул. Ленина, д. 10, кв. 5',
+      status: 'delivering',
+      address: 'ул. Пушкина, д. 25, кв. 12',
       paymentMethod: 'Наличные'
     }
   ]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [showPizzaConstructor, setShowPizzaConstructor] = useState(false);
+  const [customPizza, setCustomPizza] = useState<CustomPizza>({
+    size: '30см',
+    ingredients: []
+  });
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('card');
@@ -82,7 +112,102 @@ const Index = () => {
     { code: 'COMBO15', discount: 15, description: 'Скидка 15% на комбо-наборы' }
   ];
 
-  const menuItems: MenuItem[] = [
+  const ingredients: Ingredient[] = [
+    { id: 1, name: 'Тонкое тесто', price: 0, category: 'base' },
+    { id: 2, name: 'Пышное тесто', price: 50, category: 'base' },
+    { id: 3, name: 'Томатный соус', price: 0, category: 'sauce' },
+    { id: 4, name: 'Сливочный соус', price: 30, category: 'sauce' },
+    { id: 5, name: 'Соус барбекю', price: 30, category: 'sauce' },
+    { id: 6, name: 'Моцарелла', price: 80, category: 'cheese' },
+    { id: 7, name: 'Пармезан', price: 100, category: 'cheese' },
+    { id: 8, name: 'Чеддер', price: 90, category: 'cheese' },
+    { id: 9, name: 'Пепперони', price: 120, category: 'meat' },
+    { id: 10, name: 'Ветчина', price: 100, category: 'meat' },
+    { id: 11, name: 'Курица', price: 110, category: 'meat' },
+    { id: 12, name: 'Бекон', price: 130, category: 'meat' },
+    { id: 13, name: 'Грибы', price: 60, category: 'veggies' },
+    { id: 14, name: 'Помидоры', price: 50, category: 'veggies' },
+    { id: 15, name: 'Перец болгарский', price: 55, category: 'veggies' },
+    { id: 16, name: 'Маслины', price: 70, category: 'veggies' },
+    { id: 17, name: 'Лук красный', price: 40, category: 'veggies' },
+  ];
+
+  useEffect(() => {
+    if (menuItems.length === 0) {
+      setMenuItems([
+    { id: 1, name: 'Маргарита', description: 'Томатный соус, моцарелла, базилик', price: 450, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 450 }, { name: '30см', price: 650 }, { name: '35см', price: 850 }] },
+    { id: 2, name: 'Пепперони', description: 'Томатный соус, моцарелла, пепперони', price: 550, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 550 }, { name: '30см', price: 750 }, { name: '35см', price: 950 }] },
+    { id: 3, name: 'Четыре сыра', description: 'Моцарелла, пармезан, горгонзола, чеддер', price: 600, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 600 }, { name: '30см', price: 800 }, { name: '35см', price: 1000 }] },
+    { id: 4, name: 'Мясная', description: 'Томатный соус, моцарелла, ветчина, охотничьи колбаски, курица', price: 650, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 650 }, { name: '30см', price: 850 }, { name: '35см', price: 1050 }] },
+    { id: 5, name: 'Гавайская', description: 'Томатный соус, моцарелла, курица, ананасы', price: 580, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 580 }, { name: '30см', price: 780 }, { name: '35см', price: 980 }] },
+    { id: 6, name: 'Вегетарианская', description: 'Томатный соус, моцарелла, болгарский перец, помидоры, грибы, маслины', price: 520, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 520 }, { name: '30см', price: 720 }, { name: '35см', price: 920 }] },
+    { id: 7, name: 'Барбекю', description: 'Соус барбекю, моцарелла, курица, красный лук', price: 620, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 620 }, { name: '30см', price: 820 }, { name: '35см', price: 1020 }] },
+    { id: 8, name: 'Цезарь', description: 'Сливочный соус, моцарелла, курица, помидоры черри, салат айсберг', price: 590, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 590 }, { name: '30см', price: 790 }, { name: '35см', price: 990 }] },
+    { id: 9, name: 'Диабло', description: 'Острый томатный соус, моцарелла, пепперони, халапеньо, чили', price: 630, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 630 }, { name: '30см', price: 830 }, { name: '35см', price: 1030 }] },
+    { id: 10, name: 'Морская', description: 'Сливочный соус, моцарелла, креветки, кальмары, мидии', price: 780, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 780 }, { name: '30см', price: 980 }, { name: '35см', price: 1180 }] },
+    { id: 11, name: 'Карбонара', description: 'Сливочный соус, моцарелла, бекон, пармезан, яйцо', price: 640, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 640 }, { name: '30см', price: 840 }, { name: '35см', price: 1040 }] },
+    { id: 12, name: 'Сицилийская', description: 'Томатный соус, моцарелла, анчоусы, каперсы, оливки', price: 670, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 670 }, { name: '30см', price: 870 }, { name: '35см', price: 1070 }] },
+    { id: 13, name: 'Мексиканская', description: 'Томатный соус, моцарелла, говядина, фасоль, кукуруза, перец чили', price: 680, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 680 }, { name: '30см', price: 880 }, { name: '35см', price: 1080 }] },
+    
+    { id: 14, name: 'Салат Цезарь', description: 'Курица, салат романо, помидоры черри, пармезан, соус цезарь', price: 320, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/ec1e89ac-0d85-4cde-9dd5-886b3f37fa6e.jpg', category: 'snacks' },
+    { id: 15, name: 'Картофель фри', description: 'Хрустящий картофель с соусом на выбор', price: 180, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/ec1e89ac-0d85-4cde-9dd5-886b3f37fa6e.jpg', category: 'snacks' },
+    { id: 16, name: 'Куриные наггетсы', description: '8 шт с соусом барбекю', price: 250, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/ec1e89ac-0d85-4cde-9dd5-886b3f37fa6e.jpg', category: 'snacks' },
+    { id: 17, name: 'Чесночные гренки', description: 'С сырным соусом', price: 150, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/ec1e89ac-0d85-4cde-9dd5-886b3f37fa6e.jpg', category: 'snacks' },
+    { id: 18, name: 'Моцарелла стики', description: '6 шт с томатным соусом', price: 280, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/ec1e89ac-0d85-4cde-9dd5-886b3f37fa6e.jpg', category: 'snacks' },
+
+    { id: 19, name: 'Coca-Cola', description: '0.5л', price: 120, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/9db80cf6-8a0c-4e00-aa57-5a6be0f771c9.jpg', category: 'drinks' },
+    { id: 20, name: 'Fanta', description: '0.5л', price: 120, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/9db80cf6-8a0c-4e00-aa57-5a6be0f771c9.jpg', category: 'drinks' },
+    { id: 21, name: 'Sprite', description: '0.5л', price: 120, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/9db80cf6-8a0c-4e00-aa57-5a6be0f771c9.jpg', category: 'drinks' },
+    { id: 22, name: 'Сок Rich', description: '1л', price: 180, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/9db80cf6-8a0c-4e00-aa57-5a6be0f771c9.jpg', category: 'drinks' },
+    { id: 23, name: 'Вода Aqua Minerale', description: '0.5л', price: 80, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/9db80cf6-8a0c-4e00-aa57-5a6be0f771c9.jpg', category: 'drinks' },
+
+    { id: 24, name: 'Комбо для одного', description: 'Пицца 25см + напиток + закуска', price: 750, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'combo' },
+    { id: 25, name: 'Комбо для двоих', description: '2 пиццы 30см + 2 напитка + закуска', price: 1400, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'combo' },
+    { id: 26, name: 'Вечеринка', description: '3 пиццы 35см + 3 напитка + 2 закуски', price: 2300, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'combo' },
+    { id: 27, name: 'Детское комбо', description: 'Маленькая пицца + сок + мороженое', price: 550, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'combo' },
+    { id: 28, name: 'Большая компания', description: '4 пиццы 35см + 4 напитка + 3 закуски', price: 3200, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'combo' },
+  ]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (trackingOrderId) {
+      const interval = setInterval(() => {
+        setCourierPosition(prev => ({
+          lat: prev.lat + (Math.random() - 0.5) * 0.001,
+          lng: prev.lng + (Math.random() - 0.5) * 0.001
+        }));
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [trackingOrderId]);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  const updateOrderStatus = (orderId: number, status: Order['status']) => {
+    setOrders(orders.map(order =>
+      order.id === orderId ? { ...order, status } : order
+    ));
+    toast.success('Статус заказа обновлён');
+  };
+
+  const updateMenuItem = (item: MenuItem) => {
+    setMenuItems(menuItems.map(menuItem =>
+      menuItem.id === item.id ? item : menuItem
+    ));
+  };
+
+  const deleteMenuItem = (itemId: number) => {
+    setMenuItems(menuItems.filter(item => item.id !== itemId));
+  };
+
+  const initialMenuItems: MenuItem[] = [
     { id: 1, name: 'Маргарита', description: 'Томатный соус, моцарелла, базилик', price: 450, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 450 }, { name: '30см', price: 650 }, { name: '35см', price: 850 }] },
     { id: 2, name: 'Пепперони', description: 'Томатный соус, моцарелла, пепперони', price: 550, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 550 }, { name: '30см', price: 750 }, { name: '35см', price: 950 }] },
     { id: 3, name: 'Четыре сыра', description: 'Моцарелла, пармезан, горгонзола, чеддер', price: 600, image: 'https://cdn.poehali.dev/projects/e16e619e-66fa-4660-a098-3fc15a73fc1e/files/bbbb93a8-c38e-4c8d-b5f3-337de108bc55.jpg', category: 'pizza', sizes: [{ name: '25см', price: 600 }, { name: '30см', price: 800 }, { name: '35см', price: 1000 }] },
@@ -209,9 +334,67 @@ const Index = () => {
 
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  if (activeTab === 'admin') {
+    return (
+      <div className="min-h-screen bg-background dark:bg-background pb-20 md:pb-0">
+        <AdminPanel
+          orders={orders}
+          menuItems={menuItems}
+          onUpdateOrderStatus={updateOrderStatus}
+          onUpdateMenuItem={updateMenuItem}
+          onDeleteMenuItem={deleteMenuItem}
+        />
+        <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg md:hidden">
+          <div className="grid grid-cols-5 gap-1 p-2">
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('home')}
+            >
+              <Icon name="Home" size={20} />
+              <span className="text-xs">Главная</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('menu')}
+            >
+              <Icon name="MenuSquare" size={20} />
+              <span className="text-xs">Меню</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('cart')}
+            >
+              <Icon name="ShoppingCart" size={20} />
+              <span className="text-xs">Корзина</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('orders')}
+            >
+              <Icon name="Package" size={20} />
+              <span className="text-xs">Заказы</span>
+            </Button>
+            <Button
+              variant="default"
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('admin')}
+            >
+              <Icon name="Shield" size={20} />
+              <span className="text-xs">Админ</span>
+            </Button>
+          </div>
+        </nav>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white pb-20 md:pb-0">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <div className="min-h-screen bg-background dark:bg-background pb-20 md:pb-0">
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
@@ -220,6 +403,45 @@ const Index = () => {
             <h1 className="text-2xl font-bold text-foreground">Пицца Синица</h1>
           </div>
           
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Icon name="Sun" size={16} className="text-muted-foreground" />
+              <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+              <Icon name="Moon" size={16} className="text-muted-foreground" />
+            </div>
+
+            <Dialog open={showPizzaConstructor} onOpenChange={setShowPizzaConstructor}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="hidden md:flex">
+                  <Icon name="ChefHat" size={16} className="mr-2" />
+                  Собрать свою пиццу
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Конструктор пиццы</DialogTitle>
+                </DialogHeader>
+                <PizzaConstructor
+                  onClose={() => setShowPizzaConstructor(false)}
+                  onAddToCart={(pizza) => {
+                    setCart([...cart, pizza]);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('admin')}
+                className="hidden md:flex"
+              >
+                <Icon name="Shield" size={16} className="mr-2" />
+                Админ
+              </Button>
+            )}
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="relative">
@@ -608,10 +830,31 @@ const Index = () => {
                     <div className="text-right">
                       <p className="text-2xl font-bold text-primary">{order.total} ₽</p>
                       {order.status !== 'delivered' && (
-                        <Button variant="outline" size="sm" className="mt-2">
-                          <Icon name="MapPin" size={16} className="mr-2" />
-                          Отследить
-                        </Button>
+                        <Dialog open={trackingOrderId === order.id} onOpenChange={(open) => {
+                          if (!open) setTrackingOrderId(null);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => setTrackingOrderId(order.id)}
+                            >
+                              <Icon name="MapPin" size={16} className="mr-2" />
+                              Отследить
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Отслеживание заказа</DialogTitle>
+                            </DialogHeader>
+                            <OrderTracking
+                              order={order}
+                              courierPosition={courierPosition}
+                              onClose={() => setTrackingOrderId(null)}
+                            />
+                          </DialogContent>
+                        </Dialog>
                       )}
                     </div>
                   </div>
@@ -646,6 +889,11 @@ const Index = () => {
                   <Input type="email" placeholder="ivan@example.com" />
                 </div>
                 <Button className="w-full">Сохранить</Button>
+                <Separator className="my-4" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">Режим администратора</span>
+                  <Switch checked={isAdmin} onCheckedChange={setIsAdmin} />
+                </div>
               </div>
             </Card>
 
@@ -733,30 +981,30 @@ const Index = () => {
         </section>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg md:hidden">
-        <div className="grid grid-cols-5 gap-1 p-2">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg md:hidden">
+        <div className="grid grid-cols-6 gap-1 p-2">
           <Button
             variant={activeTab === 'home' ? 'default' : 'ghost'}
             className="flex flex-col items-center gap-1 h-auto py-2"
             onClick={() => setActiveTab('home')}
           >
-            <Icon name="Home" size={20} />
+            <Icon name="Home" size={18} />
             <span className="text-xs">Главная</span>
           </Button>
           <Button
-            variant={activeTab === 'menu' ? 'default' : 'ghost'}
+            variant="ghost"
             className="flex flex-col items-center gap-1 h-auto py-2"
-            onClick={() => setActiveTab('menu')}
+            onClick={() => setShowPizzaConstructor(true)}
           >
-            <Icon name="MenuSquare" size={20} />
-            <span className="text-xs">Меню</span>
+            <Icon name="ChefHat" size={18} />
+            <span className="text-xs">Собрать</span>
           </Button>
           <Button
             variant={activeTab === 'cart' ? 'default' : 'ghost'}
             className="flex flex-col items-center gap-1 h-auto py-2 relative"
             onClick={() => setActiveTab('cart')}
           >
-            <Icon name="ShoppingCart" size={20} />
+            <Icon name="ShoppingCart" size={18} />
             <span className="text-xs">Корзина</span>
             {cartItemsCount > 0 && (
               <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
@@ -769,7 +1017,7 @@ const Index = () => {
             className="flex flex-col items-center gap-1 h-auto py-2"
             onClick={() => setActiveTab('orders')}
           >
-            <Icon name="Package" size={20} />
+            <Icon name="Package" size={18} />
             <span className="text-xs">Заказы</span>
           </Button>
           <Button
@@ -777,9 +1025,19 @@ const Index = () => {
             className="flex flex-col items-center gap-1 h-auto py-2"
             onClick={() => setActiveTab('profile')}
           >
-            <Icon name="User" size={20} />
+            <Icon name="User" size={18} />
             <span className="text-xs">Профиль</span>
           </Button>
+          {isAdmin && (
+            <Button
+              variant={activeTab === 'admin' ? 'default' : 'ghost'}
+              className="flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => setActiveTab('admin')}
+            >
+              <Icon name="Shield" size={18} />
+              <span className="text-xs">Админ</span>
+            </Button>
+          )}
         </div>
       </nav>
     </div>
